@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
-<body>
+<body class="wide">
 <p><a href="../">&lt; food</a> | <a href="../../">home</a></p>
 
 <h1>Office eats - King West/Downtown Toronto</h1>
@@ -27,20 +27,24 @@
   </select>
 </p>
 
+<div class="wrap">
 <table>
   <thead>
     <tr>
       <th data-sort="n">#</th>
       <th data-sort="name">name</th>
       <th data-sort="cuisine">cuisine</th>
-      <th data-sort="distance_m">distance</th>
+      <th data-sort="distance_m">walk</th>
       <th data-sort="tried">tried by</th>
+      <th>the word</th>
+      <th></th>
     </tr>
   </thead>
   <tbody id="rows"></tbody>
 </table>
+</div>
 
-<p class="small">Distance is walking, from 327 King St W. Click a column name to sort. Names open Google Maps, [map] finds it here.</p>
+<p class="small">Walk is from 327 King St W. Click a column name to sort. Names open Google Maps, numbers find it on the map. Click a highlight to read the reviews, [review] to leave one.</p>
 <p class="small">Map data &copy; OpenStreetMap contributors.</p>
 
 <script>
@@ -103,19 +107,78 @@ function triedList(p) {
   return names;
 }
 
-function reviewLink(p) {
-  return FORM + '?usp=pp_url&' + SPOT_FIELD + '=' + encodeURIComponent(p.name);
+var FORM_POST = FORM.replace('/viewform', '/formResponse');
+var FIELDS = { name: 'entry.645280041', spot: SPOT_FIELD, headline: 'entry.1022696390', review: 'entry.165032429' };
+var openRow = {};  // place name -> 'reviews' | 'form'
+
+function nameLink(p) {
+  return p.maps_url ? '<a href="' + esc(p.maps_url) + '" target="_blank" rel="noopener">' + esc(p.name) + '</a>' : esc(p.name);
 }
 
 function popupHtml(p) {
-  var h = '<b>' + (p.maps_url ? '<a href="' + esc(p.maps_url) + '" target="_blank" rel="noopener">' + esc(p.name) + '</a>' : esc(p.name)) + '</b>';
+  var h = '<b>' + nameLink(p) + '</b>';
   if (p.cuisine) h += '<br>' + esc(p.cuisine);
   if (p.distance) h += '<br>' + esc(p.distance) + ' from 327 King W';
   if (p.address) h += '<br>' + esc(p.address);
   var t = triedList(p);
   h += '<br>tried by: ' + (t.length ? esc(t.join(', ')) : 'nobody yet');
-  h += '<br><a href="' + esc(reviewLink(p)) + '" target="_blank" rel="noopener">leave a review</a>';
+  reviewsFor(p).forEach(function (r) {
+    var hl = headlineOf(r);
+    if (hl) h += '<br><span class="hl">"' + esc(hl) + '"</span> - ' + esc(r.name || 'someone');
+  });
   return h;
+}
+
+function submitReview(p, form) {
+  var name = form.querySelector('[name=name]').value.trim();
+  var headline = form.querySelector('[name=headline]').value.trim();
+  var review = form.querySelector('[name=review]').value.trim();
+  var status = form.querySelector('.status');
+  if (!name) { status.textContent = 'add your name.'; return; }
+  if (!headline && !review) { status.textContent = 'say something.'; return; }
+  var body = new URLSearchParams();
+  body.append(FIELDS.name, name);
+  body.append(FIELDS.spot, p.name);
+  body.append(FIELDS.headline, headline);
+  body.append(FIELDS.review, review);
+  status.textContent = 'sending...';
+  fetch(FORM_POST, { method: 'POST', mode: 'no-cors', body: body })
+    .then(function () {
+      reviews.push({ name: cap(name), spot: p.name, headline: headline, review: review });
+      openRow[p.name] = 'reviews';
+      render();
+    })
+    .catch(function () { status.textContent = 'could not send. try again.'; });
+}
+
+function extraRow(p, mode) {
+  var tr = document.createElement('tr');
+  tr.className = 'extra';
+  var td = document.createElement('td');
+  td.colSpan = 7;
+  if (mode === 'form') {
+    td.innerHTML =
+      '<form>' +
+      '<input name="name" size="12" maxlength="40" placeholder="your name"> ' +
+      '<input name="headline" size="30" maxlength="60" placeholder="your take in 3-5 words"><br>' +
+      '<textarea name="review" placeholder="full review (optional)"></textarea><br>' +
+      '<button type="submit">post</button> <button type="button" class="cancel">cancel</button> <span class="status"></span>' +
+      '</form>';
+    var f = td.querySelector('form');
+    f.onsubmit = function (e) { e.preventDefault(); submitReview(p, f); };
+    f.querySelector('.cancel').onclick = function () { delete openRow[p.name]; render(); };
+  } else {
+    var rs = reviewsFor(p);
+    var h = '';
+    rs.forEach(function (r) {
+      var hl = headlineOf(r);
+      h += '<b>' + esc(r.name || 'someone') + ':</b> ' + (hl ? '<span class="hl">"' + esc(hl) + '"</span> ' : '') + esc(r.review || '') + '<br>';
+    });
+    if (p.email) h += 'tell the restaurant: <a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>';
+    td.innerHTML = h;
+  }
+  tr.appendChild(td);
+  return tr;
 }
 
 function render() {
@@ -144,42 +207,42 @@ function render() {
     }).bindPopup(popupHtml(p)).addTo(layer);
 
     var t = triedList(p);
+    var rs = reviewsFor(p).filter(function (r) { return headlineOf(r); });
+    var word = '-';
+    if (rs.length) {
+      var last = rs[rs.length - 1];
+      word = '<a href="#" class="word"><span class="hl">"' + esc(headlineOf(last)) + '"</span></a> - ' + esc(last.name || 'someone') +
+        (rs.length > 1 ? ' <a href="#" class="word">+' + (rs.length - 1) + '</a>' : '');
+    }
+    var walk = p.distance ? String(p.distance).replace(/^.*?,\s*/, '').replace(/ walk$/, '') : '';
     var tr = document.createElement('tr');
     tr.innerHTML =
-      '<td>' + p.n + '</td>' +
-      '<td>' + (p.maps_url ? '<a href="' + esc(p.maps_url) + '" target="_blank" rel="noopener">' + esc(p.name) + '</a>' : esc(p.name)) +
-        ' <a href="#map" class="small" title="show on map">[map]</a></td>' +
+      '<td><a href="#map" title="show on map">' + p.n + '</a></td>' +
+      '<td>' + nameLink(p) + '</td>' +
       '<td>' + esc(p.cuisine || '') + '</td>' +
-      '<td class="dist">' + esc(p.distance || '') + '</td>' +
-      '<td>' + (t.length ? esc(t.join(', ')) : '-') + '</td>';
+      '<td>' + esc(walk) + '</td>' +
+      '<td>' + (t.length ? esc(t.join(', ')) : '-') + '</td>' +
+      '<td class="word">' + word + '</td>' +
+      '<td><a href="#" class="rev">[review]</a></td>';
     tr.querySelector('a[href="#map"]').onclick = function () { map.setView([p.lat, p.lng], 17); marker.openPopup(); };
-    rows.appendChild(tr);
-
-    var rs = reviewsFor(p);
-    var sub = document.createElement('tr');
-    sub.className = 'sub';
-    var html = '';
-    rs.forEach(function (r) {
-      var hl = headlineOf(r);
-      if (hl) html += '<span class="hl">"' + esc(hl) + '"</span> - ' + esc(r.name || 'someone') + '<br>';
+    tr.querySelectorAll('a.word').forEach(function (a) {
+      a.onclick = function (e) { e.preventDefault(); openRow[p.name] = openRow[p.name] === 'reviews' ? null : 'reviews'; render(); };
     });
-    var full = rs.filter(function (r) { return r.review; });
-    if (full.length) {
-      html += '<details><summary>read reviews (' + full.length + ')</summary>';
-      full.forEach(function (r) { html += '<p><b>' + esc(r.name || 'someone') + ':</b> ' + esc(r.review) + '</p>'; });
-      html += '</details>';
-    }
-    html += '<a href="' + esc(reviewLink(p)) + '" target="_blank" rel="noopener">leave a review</a>';
-    if (p.email) html += ' | tell the restaurant: <a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>';
-    sub.innerHTML = '<td></td><td colspan="4">' + html + '</td>';
-    rows.appendChild(sub);
+    tr.querySelector('a.rev').onclick = function (e) { e.preventDefault(); openRow[p.name] = openRow[p.name] === 'form' ? null : 'form'; render(); };
+    rows.appendChild(tr);
+    if (openRow[p.name]) rows.appendChild(extraRow(p, openRow[p.name]));
   });
 
   if (!shown.length) {
-    rows.innerHTML = '<tr><td colspan="5"><i>' + (places.length ? 'nothing matches.' : 'nothing here yet.') + '</i></td></tr>';
-  } else {
-    map.fitBounds(L.latLngBounds(shown.map(function (p) { return [p.lat, p.lng]; })), { padding: [30, 30], maxZoom: 16 });
+    rows.innerHTML = '<tr><td colspan="7"><i>' + (places.length ? 'nothing matches.' : 'nothing here yet.') + '</i></td></tr>';
   }
+}
+
+var fitted = false;
+function fitOnce() {
+  if (fitted || !places.length) return;
+  fitted = true;
+  map.fitBounds(L.latLngBounds(places.map(function (p) { return [p.lat, p.lng]; })), { padding: [30, 30], maxZoom: 16 });
 }
 
 document.getElementById('who').onchange = render;
@@ -197,6 +260,7 @@ fetch('restaurants.json', { cache: 'no-cache' })
   .then(function (data) {
     places = data.map(function (p, i) { p.n = i + 1; return p; });
     render();
+    fitOnce();
     return fetch(SHEET_CSV + '&cachebust=' + Date.now())
       .then(function (r) { return r.text(); })
       .then(function (text) {
@@ -208,7 +272,7 @@ fetch('restaurants.json', { cache: 'no-cache' })
       .catch(function () {});
   })
   .catch(function () {
-    document.getElementById('rows').innerHTML = '<tr><td colspan="5">could not load the list.</td></tr>';
+    document.getElementById('rows').innerHTML = '<tr><td colspan="7">could not load the list.</td></tr>';
   });
 </script>
 </body>
