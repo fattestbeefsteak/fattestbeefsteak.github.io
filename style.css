@@ -18,7 +18,7 @@ ul { padding-left: 2ch; }
 li { margin: 0.2em 0; }
 .small { font-size: 0.85em; }
 label { margin-right: 2ch; white-space: nowrap; }
-#map { height: 420px; border: 1px solid #000; margin: 1em 0; }
+#map { height: 460px; border: 1px solid #000; margin: 1em 0; }
 .leaflet-container, .leaflet-popup-content { font-family: "Courier New", Courier, monospace !important; font-size: 14px; }
 .leaflet-popup-content-wrapper, .leaflet-popup-tip { border-radius: 0 !important; box-shadow: none !important; border: 1px solid #000; }
 table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
@@ -34,3 +34,8 @@ tr.extra td { white-space: normal; font-size: 0.8em; padding: 0.3em 0 0.8em 2ch;
 tr.extra input, tr.extra textarea { font-family: inherit; font-size: 1em; border: 1px solid #000; padding: 0.1em 0.3em; }
 tr.extra textarea { width: 100%; max-width: 36em; height: 4em; }
 button { font-family: inherit; font-size: 1em; background: #fff; border: 1px solid #000; cursor: pointer; }
+tr.sel > td { background: #eef; }
+tr.place { cursor: pointer; }
+.leaflet-tooltip.pin-label { background: #fff; color: #000; border: 1px solid #1a1a1a; border-radius: 0; box-shadow: 2px 2px 0 rgba(0,0,0,0.25); padding: 1px 5px; font-family: "Courier New", Courier, monospace; font-size: 12px; font-weight: bold; }
+.leaflet-tooltip.pin-label.sel { background: #d7263d; color: #fff; border-color: #d7263d; }
+.leaflet-tooltip.pin-label:before { display: none; }

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Office eats - King West/Downtown Toronto - Avan's food recommendations</title>
+<link rel="stylesheet" href="../../style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
+</head>
+<body class="wide">
+<p><a href="../">&lt; food</a> | <a href="../../">home</a></p>
+
+<h1>Office eats - King West/Downtown Toronto</h1>
+<p>Takeout spots to try around King West</p>
+
+<div id="map"></div>
+
+<p>
+  show:
+  <select id="who">
+    <option value="">everything</option>
+    <option value="Avan">not tried by Avan</option>
+    <option value="Anthony">not tried by Anthony</option>
+    <option value="Edison">not tried by Edison</option>
+    <option value="Marcus">not tried by Marcus</option>
+  </select>
+</p>
+
+<div class="wrap">
+<table>
+  <thead>
+    <tr>
+      <th data-sort="n">#</th>
+      <th data-sort="name">name</th>
+      <th data-sort="cuisine">cuisine</th>
+      <th data-sort="distance_m">walk</th>
+      <th data-sort="tried">tried by</th>
+      <th>the word</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody id="rows"></tbody>
+</table>
+</div>
+
+
+<script>
+var PEOPLE = ['Avan', 'Anthony', 'Edison', 'Marcus'];
+var FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSfsZmGukozY7tR3oMKdfT2mv-bmrxpO_2Ve-X2B3sKOqDsuPA/viewform';
+var SPOT_FIELD = 'entry.1577725691';
+var SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1-RnRVJBw8xBLvKz6gGEp0UuiDzvtraplzp6SHYJlGnk/gviz/tq?tqx=out:csv';
+
+var map = L.map('map').setView([43.6465, -79.3925], 15);
+L.maplibreGL({
+  style: 'https://tiles.openfreemap.org/styles/liberty',
+  attribution: '<a href="https://openfreemap.org">OpenFreeMap</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+
+var layer = L.layerGroup().addTo(map);
+var places = [];
+var reviews = [];
+var sortKey = 'n', sortDir = 1;
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+function norm(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+function cap(s) { s = String(s || '').trim(); return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function parseCSV(text) {
+  var rows = [], row = [], cur = '', q = false;
+  for (var i = 0; i < text.length; i++) {
+    var c = text[i];
+    if (q) {
+      if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; }
+      else if (c === '"') q = false;
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+    else if (c !== '\r') cur += c;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+
+function reviewsFor(p) {
+  return reviews.filter(function (r) { return norm(r.spot) === norm(p.name); });
+}
+
+function headlineOf(r) {
+  if (r.headline) return r.headline;
+  if (r.review) return r.review.split(/\s+/).slice(0, 5).join(' ') + (r.review.split(/\s+/).length > 5 ? '...' : '');
+  return '';
+}
+
+function triedList(p) {
+  var names = (p.tried || []).slice();
+  reviewsFor(p).forEach(function (r) {
+    if (r.name && names.map(norm).indexOf(norm(r.name)) === -1) names.push(r.name);
+  });
+  return names;
+}
+
+var FORM_POST = FORM.replace('/viewform', '/formResponse');
+var FIELDS = { name: 'entry.645280041', spot: SPOT_FIELD, headline: 'entry.1022696390', review: 'entry.165032429' };
+var openRow = {};  // place name -> 'reviews' | 'form'
+var selected = null;
+var markers = {};
+var rowEls = {};
+
+function nameLink(p) {
+  return p.maps_url ? '<a href="' + esc(p.maps_url) + '" target="_blank" rel="noopener">' + esc(p.name) + '</a>' : esc(p.name);
+}
+
+function popupHtml(p) {
+  var h = '<b>' + nameLink(p) + '</b>';
+  if (p.cuisine) h += '<br>' + esc(p.cuisine);
+  if (p.distance) h += '<br>' + esc(p.distance) + ' from 327 King W';
+  if (p.address) h += '<br>' + esc(p.address);
+  var t = triedList(p);
+  h += '<br>tried by: ' + (t.length ? esc(t.join(', ')) : 'nobody yet');
+  reviewsFor(p).forEach(function (r) {
+    var hl = headlineOf(r);
+    if (hl) h += '<br><span class="hl">"' + esc(hl) + '"</span> - ' + esc(r.name || 'someone');
+  });
+  return h;
+}
+
+function submitReview(p, form) {
+  var name = form.querySelector('[name=name]').value.trim();
+  var headline = form.querySelector('[name=headline]').value.trim();
+  var review = form.querySelector('[name=review]').value.trim();
+  var status = form.querySelector('.status');
+  if (!name) { status.textContent = 'add your name.'; return; }
+  if (!headline && !review) { status.textContent = 'say something.'; return; }
+  var body = new URLSearchParams();
+  body.append(FIELDS.name, name);
+  body.append(FIELDS.spot, p.name);
+  body.append(FIELDS.headline, headline);
+  body.append(FIELDS.review, review);
+  status.textContent = 'sending...';
+  fetch(FORM_POST, { method: 'POST', mode: 'no-cors', body: body })
+    .then(function () {
+      reviews.push({ name: cap(name), spot: p.name, headline: headline, review: review });
+      openRow[p.name] = 'reviews';
+      render();
+    })
+    .catch(function () { status.textContent = 'could not send. try again.'; });
+}
+
+function extraRow(p, mode) {
+  var tr = document.createElement('tr');
+  tr.className = 'extra';
+  var td = document.createElement('td');
+  td.colSpan = 7;
+  if (mode === 'form') {
+    td.innerHTML =
+      '<form>' +
+      '<input name="name" size="12" maxlength="40" placeholder="your name"> ' +
+      '<input name="headline" size="30" maxlength="60" placeholder="your take in 3-5 words"><br>' +
+      '<textarea name="review" placeholder="full review (optional)"></textarea><br>' +
+      '<button type="submit">post</button> <button type="button" class="cancel">cancel</button> <span class="status"></span>' +
+      '</form>';
+    var f = td.querySelector('form');
+    f.onsubmit = function (e) { e.preventDefault(); submitReview(p, f); };
+    f.querySelector('.cancel').onclick = function () { delete openRow[p.name]; render(); };
+  } else {
+    var rs = reviewsFor(p);
+    var h = '';
+    rs.forEach(function (r) {
+      var hl = headlineOf(r);
+      h += '<b>' + esc(r.name || 'someone') + ':</b> ' + (hl ? '<span class="hl">"' + esc(hl) + '"</span> ' : '') + esc(r.review || '') + '<br>';
+    });
+    td.innerHTML = h;
+  }
+  tr.appendChild(td);
+  return tr;
+}
+
+function render() {
+  var who = document.getElementById('who').value;
+  var rows = document.getElementById('rows');
+  rows.innerHTML = '';
+  layer.clearLayers();
+  markers = {};
+  rowEls = {};
+
+  var shown = places.filter(function (p) {
+    return !who || triedList(p).map(norm).indexOf(norm(who)) === -1;
+  });
+
+  shown.sort(function (a, b) {
+    var x = sortKey === 'tried' ? triedList(a).length : a[sortKey];
+    var y = sortKey === 'tried' ? triedList(b).length : b[sortKey];
+    if (typeof x === 'string') x = x.toLowerCase();
+    if (typeof y === 'string') y = y.toLowerCase();
+    if (x == null) return 1;
+    if (y == null) return -1;
+    return (x > y ? 1 : x < y ? -1 : 0) * sortDir;
+  });
+
+  shown.forEach(function (p) {
+    var isSel = selected === p.name;
+    var marker = L.circleMarker([p.lat, p.lng], {
+      radius: isSel ? 9 : 7, color: '#fff', weight: 2,
+      fillColor: isSel ? '#d7263d' : '#1a1a1a', fillOpacity: 1
+    }).bindPopup(popupHtml(p))
+      .bindTooltip(p.n + '. ' + p.name, { permanent: true, direction: 'right', offset: [10, 0], className: 'pin-label' + (isSel ? ' sel' : '') })
+      .addTo(layer);
+    marker.on('click', function () { selectPlace(p.name, 'map'); });
+    markers[p.name] = marker;
+
+    var t = triedList(p);
+    var rs = reviewsFor(p).filter(function (r) { return headlineOf(r); });
+    var word = '-';
+    if (rs.length) {
+      var last = rs[rs.length - 1];
+      word = '<a href="#" class="word"><span class="hl">"' + esc(headlineOf(last)) + '"</span></a> - ' + esc(last.name || 'someone') +
+        (rs.length > 1 ? ' <a href="#" class="word">+' + (rs.length - 1) + '</a>' : '');
+    }
+    var walk = p.distance ? String(p.distance).replace(/^.*?,\s*/, '').replace(/ walk$/, '') : '';
+    var tr = document.createElement('tr');
+    tr.className = 'place' + (isSel ? ' sel' : '');
+    rowEls[p.name] = tr;
+    tr.innerHTML =
+      '<td><a href="#map" title="show on map">' + p.n + '</a></td>' +
+      '<td>' + nameLink(p) + '</td>' +
+      '<td>' + esc(p.cuisine || '') + '</td>' +
+      '<td>' + esc(walk) + '</td>' +
+      '<td>' + (t.length ? esc(t.join(', ')) : '-') + '</td>' +
+      '<td class="word">' + word + '</td>' +
+      '<td><a href="#" class="rev">[review]</a></td>';
+    tr.querySelector('a[href="#map"]').onclick = function (e) { e.preventDefault(); selectPlace(p.name, 'list'); };
+    tr.onclick = function (e) { if (e.target.closest('a')) return; selectPlace(p.name, 'list'); };
+    tr.querySelectorAll('a.word').forEach(function (a) {
+      a.onclick = function (e) { e.preventDefault(); openRow[p.name] = openRow[p.name] === 'reviews' ? null : 'reviews'; render(); };
+    });
+    tr.querySelector('a.rev').onclick = function (e) { e.preventDefault(); openRow[p.name] = openRow[p.name] === 'form' ? null : 'form'; render(); };
+    rows.appendChild(tr);
+    if (openRow[p.name]) rows.appendChild(extraRow(p, openRow[p.name]));
+  });
+
+  if (!shown.length) {
+    rows.innerHTML = '<tr><td colspan="7"><i>' + (places.length ? 'nothing matches.' : 'nothing here yet.') + '</i></td></tr>';
+  }
+}
+
+function selectPlace(name, from) {
+  selected = name;
+  render();
+  var p = places.filter(function (x) { return x.name === name; })[0];
+  var m = markers[name];
+  if (!p || !m) return;
+  if (from === 'list') {
+    map.setView([p.lat, p.lng], 17);
+    document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  m.openPopup();
+  if (from === 'map' && rowEls[name]) rowEls[name].scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+var fitted = false;
+function fitOnce() {
+  if (fitted || !places.length) return;
+  fitted = true;
+  map.fitBounds(L.latLngBounds(places.map(function (p) { return [p.lat, p.lng]; })), { padding: [30, 30], maxZoom: 16 });
+}
+
+document.getElementById('who').onchange = render;
+document.querySelectorAll('th[data-sort]').forEach(function (th) {
+  th.onclick = function () {
+    var k = th.getAttribute('data-sort');
+    sortDir = (sortKey === k) ? -sortDir : 1;
+    sortKey = k;
+    render();
+  };
+});
+
+fetch('restaurants.json', { cache: 'no-cache' })
+  .then(function (r) { return r.json(); })
+  .then(function (data) {
+    places = data.map(function (p, i) { p.n = i + 1; return p; });
+    render();
+    fitOnce();
+    return fetch(SHEET_CSV + '&cachebust=' + Date.now())
+      .then(function (r) { return r.text(); })
+      .then(function (text) {
+        reviews = parseCSV(text).slice(1).filter(function (r) { return r.length >= 3 && r[2]; }).map(function (r) {
+          return { name: cap(r[1]), spot: r[2], headline: (r[3] || '').trim(), review: (r[4] || '').trim() };
+        });
+        render();
+      })
+      .catch(function () {});
+  })
+  .catch(function () {
+    document.getElementById('rows').innerHTML = '<tr><td colspan="7">could not load the list.</td></tr>';
+  });
+</script>
+</body>
+</html>
