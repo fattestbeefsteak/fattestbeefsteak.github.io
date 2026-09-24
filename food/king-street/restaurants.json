@@ -10,5 +10,41 @@
     "maps_url": "https://www.google.com/maps/search/?api=1&query=PAI&query_place_id=ChIJ1ZGZKNk0K4gRaouNzuptWV8",
     "email": "downtown@paitoronto.com",
     "tried": []
+  },
+  {
+    "name": "Khao San Road",
+    "address": "11 Charlotte St, Toronto, ON M5V 0M6",
+    "lat": 43.6463952,
+    "lng": -79.3936158,
+    "cuisine": "Thai",
+    "distance": "270 m, 4 min walk",
+    "distance_m": 273,
+    "maps_url": "https://www.google.com/maps/search/?api=1&query=Khao+San+Road&query_place_id=ChIJsYytfdo0K4gRyuS_nZmdpIQ",
+    "email": "info@khaosanroad.ca",
+    "tried": []
+  },
+  {
+    "name": "Tahini's",
+    "address": "347 King St W, Toronto, ON M5V 1J5",
+    "lat": 43.6460572,
+    "lng": -79.391657,
+    "cuisine": "Shawarma",
+    "distance": "50 m, 1 min walk",
+    "distance_m": 48,
+    "maps_url": "https://www.google.com/maps/search/?api=1&query=Tahini%27s+Shawarma&query_place_id=ChIJweapguE1K4gRswwXtsYjqN0",
+    "email": "",
+    "tried": []
+  },
+  {
+    "name": "Shelby's",
+    "address": "297 King St W, Toronto, ON M5V 1J5",
+    "lat": 43.6463598,
+    "lng": -79.3901393,
+    "cuisine": "Shawarma",
+    "distance": "80 m, 1 min walk",
+    "distance_m": 82,
+    "maps_url": "https://www.google.com/maps/search/?api=1&query=Shelby%27s+Legendary+Shawarma&query_place_id=ChIJawV5ALY1K4gRILAehTzIYPs",
+    "email": "support@shelbys.ca",
+    "tried": []
   }
 ]
