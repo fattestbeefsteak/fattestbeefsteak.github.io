@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Near King Street - Avan's food recommendations</title>
+<link rel="stylesheet" href="../../style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+<p><a href="../">&lt; food</a> | <a href="../../">home</a></p>
+
+<h1>Near King Street</h1>
+<p>Restaurants around King St, downtown Toronto.</p>
+
+<p>
+  <b>Show:</b><br>
+  <label><input type="checkbox" class="f-type" value="takeout" checked> [&#9679;] takeout / lunch / dinner</label><br>
+  <label><input type="checkbox" class="f-type" value="sitdown" checked> [&#9675;] lunch / dinner</label><br>
+  <label><input type="checkbox" id="f-totry"> include places I haven't tried yet</label>
+</p>
+
+<div id="map"></div>
+
+<p id="count" class="small"></p>
+
+<h2>Takeout / lunch / dinner</h2>
+<ul id="list-takeout"></ul>
+
+<h2>Lunch / dinner</h2>
+<ul id="list-sitdown"></ul>
+
+<hr>
+<p class="small">Map data &copy; OpenStreetMap contributors.</p>
+
+<script>
+var map = L.map('map').setView([43.6465, -79.3925], 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; OpenStreetMap'
+}).addTo(map);
+
+var layer = L.layerGroup().addTo(map);
+var places = [];
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+
+function popupHtml(p) {
+  var h = '<b>' + esc(p.name) + '</b>';
+  if (p.status === 'to-try') h += ' <i>(to try)</i>';
+  h += '<br>' + (p.type === 'takeout' ? 'takeout / lunch / dinner' : 'lunch / dinner');
+  if (p.address) h += '<br>' + esc(p.address);
+  if (p.order) h += '<br>get: ' + esc(p.order);
+  if (p.note) h += '<br>' + esc(p.note);
+  if (p.link) h += '<br><a href="' + esc(p.link) + '" target="_blank" rel="noopener">link</a>';
+  return h;
+}
+
+function render() {
+  var types = Array.prototype.slice.call(document.querySelectorAll('.f-type'))
+    .filter(function (b) { return b.checked; })
+    .map(function (b) { return b.value; });
+  var showToTry = document.getElementById('f-totry').checked;
+
+  layer.clearLayers();
+  var lists = { takeout: document.getElementById('list-takeout'), sitdown: document.getElementById('list-sitdown') };
+  lists.takeout.innerHTML = '';
+  lists.sitdown.innerHTML = '';
+
+  var shown = [];
+  places.forEach(function (p) {
+    if (types.indexOf(p.type) === -1) return;
+    if (p.status === 'to-try' && !showToTry) return;
+    shown.push(p);
+
+    var marker = L.circleMarker([p.lat, p.lng], {
+      radius: 7,
+      color: '#000',
+      weight: 2,
+      dashArray: p.status === 'to-try' ? '3,3' : null,
+      fillColor: '#000',
+      fillOpacity: p.type === 'takeout' ? 1 : 0
+    }).bindPopup(popupHtml(p)).addTo(layer);
+
+    var li = document.createElement('li');
+    var a = document.createElement('a');
+    a.href = '#map';
+    a.textContent = p.name;
+    a.onclick = function () { map.setView([p.lat, p.lng], 17); marker.openPopup(); };
+    li.appendChild(a);
+    var extra = [];
+    if (p.status === 'to-try') extra.push('to try');
+    if (p.order) extra.push('get: ' + p.order);
+    if (p.note) extra.push(p.note);
+    if (extra.length) li.appendChild(document.createTextNode(' - ' + extra.join('. ')));
+    lists[p.type].appendChild(li);
+  });
+
+  ['takeout', 'sitdown'].forEach(function (t) {
+    if (!lists[t].children.length) lists[t].innerHTML = '<li><i>nothing here yet.</i></li>';
+  });
+
+  document.getElementById('count').textContent =
+    shown.length + ' of ' + places.length + ' place' + (places.length === 1 ? '' : 's') + ' shown.';
+
+  if (shown.length) {
+    map.fitBounds(L.latLngBounds(shown.map(function (p) { return [p.lat, p.lng]; })), { padding: [30, 30], maxZoom: 16 });
+  }
+}
+
+document.querySelectorAll('input[type=checkbox]').forEach(function (b) { b.onchange = render; });
+
+fetch('restaurants.json', { cache: 'no-cache' })
+  .then(function (r) { return r.json(); })
+  .then(function (data) { places = data; render(); })
+  .catch(function () { document.getElementById('count').textContent = 'could not load the list.'; });
+</script>
+</body>
+</html>

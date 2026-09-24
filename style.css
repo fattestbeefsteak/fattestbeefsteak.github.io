@@ -1,0 +1,25 @@
+/* deliberately plain. 1980s text. */
+body {
+  background: #fff;
+  color: #000;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 16px;
+  line-height: 1.45;
+  max-width: 44em;
+  margin: 2em auto;
+  padding: 0 1em;
+}
+a { color: #00e; }
+a:visited { color: #551a8b; }
+h1, h2, h3 { font-weight: bold; font-size: 1em; text-transform: uppercase; margin: 1.5em 0 0.5em; }
+h1 { font-size: 1.2em; }
+hr { border: 0; border-top: 1px dashed #000; margin: 1.5em 0; }
+pre { font-family: inherit; margin: 0; }
+ul { padding-left: 2ch; }
+li { margin: 0.2em 0; }
+.small { font-size: 0.85em; }
+label { margin-right: 2ch; white-space: nowrap; }
+#map { height: 420px; border: 1px solid #000; margin: 1em 0; }
+#map .leaflet-tile-pane { filter: grayscale(100%) contrast(1.05); }
+.leaflet-container, .leaflet-popup-content { font-family: "Courier New", Courier, monospace !important; font-size: 14px; }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { border-radius: 0 !important; box-shadow: none !important; border: 1px solid #000; }
