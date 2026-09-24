@@ -40,11 +40,15 @@
   <tbody id="rows"></tbody>
 </table>
 
-<p class="small">Distance is walking, from 327 King St W. Click a column name to sort, click a place to find it on the map.</p>
+<p class="small">Distance is walking, from 327 King St W. Click a column name to sort. Names open Google Maps, [map] finds it here.</p>
 <p class="small">Map data &copy; OpenStreetMap contributors.</p>
 
 <script>
 var PEOPLE = ['Avan', 'Anthony', 'Edison', 'Marcus'];
+var FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSfsZmGukozY7tR3oMKdfT2mv-bmrxpO_2Ve-X2B3sKOqDsuPA/viewform';
+var SPOT_FIELD = 'entry.1577725691';
+var SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1-RnRVJBw8xBLvKz6gGEp0UuiDzvtraplzp6SHYJlGnk/gviz/tq?tqx=out:csv';
+
 var map = L.map('map').setView([43.6465, -79.3925], 15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
@@ -53,6 +57,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 var layer = L.layerGroup().addTo(map);
 var places = [];
+var reviews = [];
 var sortKey = 'n', sortDir = 1;
 
 function esc(s) {
@@ -60,20 +65,56 @@ function esc(s) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
   });
 }
+function norm(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+function cap(s) { s = String(s || '').trim(); return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function parseCSV(text) {
+  var rows = [], row = [], cur = '', q = false;
+  for (var i = 0; i < text.length; i++) {
+    var c = text[i];
+    if (q) {
+      if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; }
+      else if (c === '"') q = false;
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+    else if (c !== '\r') cur += c;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+
+function reviewsFor(p) {
+  return reviews.filter(function (r) { return norm(r.spot) === norm(p.name); });
+}
+
+function headlineOf(r) {
+  if (r.headline) return r.headline;
+  if (r.review) return r.review.split(/\s+/).slice(0, 5).join(' ') + (r.review.split(/\s+/).length > 5 ? '...' : '');
+  return '';
+}
 
 function triedList(p) {
-  return PEOPLE.filter(function (x) { return (p.tried || []).indexOf(x) !== -1; });
+  var names = (p.tried || []).slice();
+  reviewsFor(p).forEach(function (r) {
+    if (r.name && names.map(norm).indexOf(norm(r.name)) === -1) names.push(r.name);
+  });
+  return names;
+}
+
+function reviewLink(p) {
+  return FORM + '?usp=pp_url&' + SPOT_FIELD + '=' + encodeURIComponent(p.name);
 }
 
 function popupHtml(p) {
-  var h = '<b>' + esc(p.name) + '</b>';
+  var h = '<b>' + (p.maps_url ? '<a href="' + esc(p.maps_url) + '" target="_blank" rel="noopener">' + esc(p.name) + '</a>' : esc(p.name)) + '</b>';
   if (p.cuisine) h += '<br>' + esc(p.cuisine);
   if (p.distance) h += '<br>' + esc(p.distance) + ' from 327 King W';
   if (p.address) h += '<br>' + esc(p.address);
   var t = triedList(p);
   h += '<br>tried by: ' + (t.length ? esc(t.join(', ')) : 'nobody yet');
-  if (p.note) h += '<br>' + esc(p.note);
-  if (p.link) h += '<br><a href="' + esc(p.link) + '" target="_blank" rel="noopener">link</a>';
+  h += '<br><a href="' + esc(reviewLink(p)) + '" target="_blank" rel="noopener">leave a review</a>';
   return h;
 }
 
@@ -84,7 +125,7 @@ function render() {
   layer.clearLayers();
 
   var shown = places.filter(function (p) {
-    return !who || (p.tried || []).indexOf(who) === -1;
+    return !who || triedList(p).map(norm).indexOf(norm(who)) === -1;
   });
 
   shown.sort(function (a, b) {
@@ -102,16 +143,36 @@ function render() {
       radius: 7, color: '#00e', weight: 2, fillColor: '#00e', fillOpacity: 0.8
     }).bindPopup(popupHtml(p)).addTo(layer);
 
-    var tr = document.createElement('tr');
     var t = triedList(p);
+    var tr = document.createElement('tr');
     tr.innerHTML =
       '<td>' + p.n + '</td>' +
-      '<td><a href="#map">' + esc(p.name) + '</a></td>' +
+      '<td>' + (p.maps_url ? '<a href="' + esc(p.maps_url) + '" target="_blank" rel="noopener">' + esc(p.name) + '</a>' : esc(p.name)) +
+        ' <a href="#map" class="small" title="show on map">[map]</a></td>' +
       '<td>' + esc(p.cuisine || '') + '</td>' +
       '<td class="dist">' + esc(p.distance || '') + '</td>' +
       '<td>' + (t.length ? esc(t.join(', ')) : '-') + '</td>';
-    tr.querySelector('a').onclick = function () { map.setView([p.lat, p.lng], 17); marker.openPopup(); };
+    tr.querySelector('a[href="#map"]').onclick = function () { map.setView([p.lat, p.lng], 17); marker.openPopup(); };
     rows.appendChild(tr);
+
+    var rs = reviewsFor(p);
+    var sub = document.createElement('tr');
+    sub.className = 'sub';
+    var html = '';
+    rs.forEach(function (r) {
+      var hl = headlineOf(r);
+      if (hl) html += '<span class="hl">"' + esc(hl) + '"</span> - ' + esc(r.name || 'someone') + '<br>';
+    });
+    var full = rs.filter(function (r) { return r.review; });
+    if (full.length) {
+      html += '<details><summary>read reviews (' + full.length + ')</summary>';
+      full.forEach(function (r) { html += '<p><b>' + esc(r.name || 'someone') + ':</b> ' + esc(r.review) + '</p>'; });
+      html += '</details>';
+    }
+    html += '<a href="' + esc(reviewLink(p)) + '" target="_blank" rel="noopener">leave a review</a>';
+    if (p.email) html += ' | tell the restaurant: <a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>';
+    sub.innerHTML = '<td></td><td colspan="4">' + html + '</td>';
+    rows.appendChild(sub);
   });
 
   if (!shown.length) {
@@ -136,6 +197,15 @@ fetch('restaurants.json', { cache: 'no-cache' })
   .then(function (data) {
     places = data.map(function (p, i) { p.n = i + 1; return p; });
     render();
+    return fetch(SHEET_CSV + '&cachebust=' + Date.now())
+      .then(function (r) { return r.text(); })
+      .then(function (text) {
+        reviews = parseCSV(text).slice(1).filter(function (r) { return r.length >= 3 && r[2]; }).map(function (r) {
+          return { name: cap(r[1]), spot: r[2], headline: (r[3] || '').trim(), review: (r[4] || '').trim() };
+        });
+        render();
+      })
+      .catch(function () {});
   })
   .catch(function () {
     document.getElementById('rows').innerHTML = '<tr><td colspan="5">could not load the list.</td></tr>';
