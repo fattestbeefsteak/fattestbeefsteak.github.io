@@ -6,6 +6,8 @@
 <title>Office eats - King West/Downtown Toronto - Avan's food recommendations</title>
 <link rel="stylesheet" href="../../style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<p class="small contact">contact us: <a href="mailto:fattestbeefsteak@gmail.com">fattestbeefsteak@gmail.com</a></p>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
@@ -39,6 +41,7 @@
       <th data-sort="cuisine">cuisine</th>
       <th data-sort="distance_m">walk</th>
       <th data-sort="tried">tried by</th>
+      <th data-sort="avg">average score</th>
       <th>the word</th>
       <th></th>
     </tr>
@@ -109,7 +112,7 @@ function triedList(p) {
 }
 
 var FORM_POST = FORM.replace('/viewform', '/formResponse');
-var FIELDS = { name: 'entry.645280041', spot: SPOT_FIELD, headline: 'entry.1022696390', review: 'entry.165032429' };
+var FIELDS = { name: 'entry.645280041', spot: SPOT_FIELD, headline: 'entry.1022696390', review: 'entry.165032429', score: 'entry.1904229446' };
 var openRow = {};  // place name -> 'reviews' | 'form'
 var selected = null;
 var markers = {};
@@ -133,22 +136,37 @@ function popupHtml(p) {
   return h;
 }
 
+function toScore(v) {
+  var n = parseFloat(v);
+  return isNaN(n) || n < 0 || n > 10 ? null : n;
+}
+
+function avgScore(p) {
+  var xs = reviewsFor(p).map(function (r) { return r.score; }).filter(function (x) { return x != null; });
+  if (!xs.length) return null;
+  var a = xs.reduce(function (s, x) { return s + x; }, 0) / xs.length;
+  return Math.round(a * 10) / 10;
+}
+
 function submitReview(p, form) {
   var name = form.querySelector('[name=name]').value.trim();
   var headline = form.querySelector('[name=headline]').value.trim();
   var review = form.querySelector('[name=review]').value.trim();
+  var score = form.querySelector('[name=score]').value.trim();
   var status = form.querySelector('.status');
   if (!name) { status.textContent = 'add your name.'; return; }
-  if (!headline && !review) { status.textContent = 'say something.'; return; }
+  if (!headline && !review && !score) { status.textContent = 'say something.'; return; }
+  if (score && !(parseFloat(score) >= 0 && parseFloat(score) <= 10)) { status.textContent = 'score is 0-10.'; return; }
   var body = new URLSearchParams();
   body.append(FIELDS.name, name);
   body.append(FIELDS.spot, p.name);
   body.append(FIELDS.headline, headline);
   body.append(FIELDS.review, review);
+  body.append(FIELDS.score, score);
   status.textContent = 'sending...';
   fetch(FORM_POST, { method: 'POST', mode: 'no-cors', body: body })
     .then(function () {
-      reviews.push({ name: cap(name), spot: p.name, headline: headline, review: review });
+      reviews.push({ name: cap(name), spot: p.name, headline: headline, review: review, score: toScore(score) });
       openRow[p.name] = 'reviews';
       render();
     })
@@ -159,12 +177,13 @@ function extraRow(p, mode) {
   var tr = document.createElement('tr');
   tr.className = 'extra';
   var td = document.createElement('td');
-  td.colSpan = 7;
+  td.colSpan = 8;
   if (mode === 'form') {
     td.innerHTML =
       '<form>' +
       '<input name="name" size="12" maxlength="40" placeholder="your name"> ' +
-      '<input name="headline" size="30" maxlength="60" placeholder="your take in 3-5 words"><br>' +
+      '<input name="headline" size="30" maxlength="60" placeholder="your take in 3-5 words"> ' +
+      '<input name="score" type="number" min="0" max="10" step="0.5" style="width:5ch" placeholder="0-10"> /10<br>' +
       '<textarea name="review" placeholder="full review (optional)"></textarea><br>' +
       '<button type="submit">post</button> <button type="button" class="cancel">cancel</button> <span class="status"></span>' +
       '</form>';
@@ -176,7 +195,7 @@ function extraRow(p, mode) {
     var h = '';
     rs.forEach(function (r) {
       var hl = headlineOf(r);
-      h += '<b>' + esc(r.name || 'someone') + ':</b> ' + (hl ? '<span class="hl">"' + esc(hl) + '"</span> ' : '') + esc(r.review || '') + '<br>';
+      h += '<b>' + esc(r.name || 'someone') + ':</b> ' + (r.score != null ? r.score + '/10 ' : '') + (hl ? '<span class="hl">"' + esc(hl) + '"</span> ' : '') + esc(r.review || '') + '<br>';
     });
     td.innerHTML = h;
   }
@@ -197,8 +216,8 @@ function render() {
   });
 
   shown.sort(function (a, b) {
-    var x = sortKey === 'tried' ? triedList(a).length : a[sortKey];
-    var y = sortKey === 'tried' ? triedList(b).length : b[sortKey];
+    var x = sortKey === 'tried' ? triedList(a).length : sortKey === 'avg' ? avgScore(a) : a[sortKey];
+    var y = sortKey === 'tried' ? triedList(b).length : sortKey === 'avg' ? avgScore(b) : b[sortKey];
     if (typeof x === 'string') x = x.toLowerCase();
     if (typeof y === 'string') y = y.toLowerCase();
     if (x == null) return 1;
@@ -235,6 +254,7 @@ function render() {
       '<td>' + esc(p.cuisine || '') + '</td>' +
       '<td>' + esc(walk) + '</td>' +
       '<td>' + (t.length ? esc(t.join(', ')) : '-') + '</td>' +
+      '<td class="score">' + (avgScore(p) != null ? avgScore(p) : '-') + '</td>' +
       '<td class="word">' + word + '</td>' +
       '<td><a href="#" class="rev">[review]</a></td>';
     tr.querySelector('a[href="#map"]').onclick = function (e) { e.preventDefault(); selectPlace(p.name, 'list'); };
@@ -248,7 +268,7 @@ function render() {
   });
 
   if (!shown.length) {
-    rows.innerHTML = '<tr><td colspan="7"><i>' + (places.length ? 'nothing matches.' : 'nothing here yet.') + '</i></td></tr>';
+    rows.innerHTML = '<tr><td colspan="8"><i>' + (places.length ? 'nothing matches.' : 'nothing here yet.') + '</i></td></tr>';
   }
 }
 
@@ -293,14 +313,14 @@ fetch('restaurants.json', { cache: 'no-cache' })
       .then(function (r) { return r.text(); })
       .then(function (text) {
         reviews = parseCSV(text).slice(1).filter(function (r) { return r.length >= 3 && r[2]; }).map(function (r) {
-          return { name: cap(r[1]), spot: r[2], headline: (r[3] || '').trim(), review: (r[4] || '').trim() };
+          return { name: cap(r[1]), spot: r[2], headline: (r[3] || '').trim(), review: (r[4] || '').trim(), score: toScore(r[5]) };
         });
         render();
       })
       .catch(function () {});
   })
   .catch(function () {
-    document.getElementById('rows').innerHTML = '<tr><td colspan="7">could not load the list.</td></tr>';
+    document.getElementById('rows').innerHTML = '<tr><td colspan="8">could not load the list.</td></tr>';
   });
 </script>
 </body>

@@ -46,5 +46,17 @@
     "maps_url": "https://www.google.com/maps/search/?api=1&query=Shelby%27s+Legendary+Shawarma&query_place_id=ChIJawV5ALY1K4gRILAehTzIYPs",
     "email": "support@shelbys.ca",
     "tried": []
+  },
+  {
+    "name": "Chipotle",
+    "address": "430 King St W, Toronto, ON M5V 1K3",
+    "lat": 43.6458879,
+    "lng": -79.3940695,
+    "cuisine": "Mexican",
+    "distance": "220 m, 3 min walk",
+    "distance_m": 224,
+    "maps_url": "https://www.google.com/maps/search/?api=1&query=Chipotle+Mexican+Grill&query_place_id=ChIJcY5sozg1K4gRN52t-416LpI",
+    "email": "",
+    "tried": []
   }
 ]

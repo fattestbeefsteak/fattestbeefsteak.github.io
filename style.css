@@ -40,3 +40,5 @@ tr.place { cursor: pointer; }
 .leaflet-tooltip.pin-label.sel { background: #d7263d; color: #fff; border-color: #d7263d; }
 .leaflet-tooltip.pin-label:before { display: none; }
 #who { width: auto; display: inline-block; }
+.contact { margin-top: 2em; }
+td.score { text-align: right; padding-right: 2ch; }
