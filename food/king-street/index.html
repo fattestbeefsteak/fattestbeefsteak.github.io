@@ -7,6 +7,9 @@
 <link rel="stylesheet" href="../../style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
 </head>
 <body class="wide">
 <p><a href="../">&lt; food</a> | <a href="../../">home</a></p>
@@ -52,9 +55,9 @@ var SPOT_FIELD = 'entry.1577725691';
 var SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1-RnRVJBw8xBLvKz6gGEp0UuiDzvtraplzp6SHYJlGnk/gviz/tq?tqx=out:csv';
 
 var map = L.map('map').setView([43.6465, -79.3925], 15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; OpenStreetMap'
+L.maplibreGL({
+  style: 'https://tiles.openfreemap.org/styles/liberty',
+  attribution: '<a href="https://openfreemap.org">OpenFreeMap</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
 
 var layer = L.layerGroup().addTo(map);
@@ -108,6 +111,9 @@ function triedList(p) {
 var FORM_POST = FORM.replace('/viewform', '/formResponse');
 var FIELDS = { name: 'entry.645280041', spot: SPOT_FIELD, headline: 'entry.1022696390', review: 'entry.165032429' };
 var openRow = {};  // place name -> 'reviews' | 'form'
+var selected = null;
+var markers = {};
+var rowEls = {};
 
 function nameLink(p) {
   return p.maps_url ? '<a href="' + esc(p.maps_url) + '" target="_blank" rel="noopener">' + esc(p.name) + '</a>' : esc(p.name);
@@ -183,6 +189,8 @@ function render() {
   var rows = document.getElementById('rows');
   rows.innerHTML = '';
   layer.clearLayers();
+  markers = {};
+  rowEls = {};
 
   var shown = places.filter(function (p) {
     return !who || triedList(p).map(norm).indexOf(norm(who)) === -1;
@@ -199,9 +207,15 @@ function render() {
   });
 
   shown.forEach(function (p) {
+    var isSel = selected === p.name;
     var marker = L.circleMarker([p.lat, p.lng], {
-      radius: 7, color: '#00e', weight: 2, fillColor: '#00e', fillOpacity: 0.8
-    }).bindPopup(popupHtml(p)).addTo(layer);
+      radius: isSel ? 9 : 7, color: '#fff', weight: 2,
+      fillColor: isSel ? '#d7263d' : '#1a1a1a', fillOpacity: 1
+    }).bindPopup(popupHtml(p))
+      .bindTooltip(p.n + '. ' + p.name, { permanent: true, direction: 'right', offset: [10, 0], className: 'pin-label' + (isSel ? ' sel' : '') })
+      .addTo(layer);
+    marker.on('click', function () { selectPlace(p.name, 'map'); });
+    markers[p.name] = marker;
 
     var t = triedList(p);
     var rs = reviewsFor(p).filter(function (r) { return headlineOf(r); });
@@ -213,6 +227,8 @@ function render() {
     }
     var walk = p.distance ? String(p.distance).replace(/^.*?,\s*/, '').replace(/ walk$/, '') : '';
     var tr = document.createElement('tr');
+    tr.className = 'place' + (isSel ? ' sel' : '');
+    rowEls[p.name] = tr;
     tr.innerHTML =
       '<td><a href="#map" title="show on map">' + p.n + '</a></td>' +
       '<td>' + nameLink(p) + '</td>' +
@@ -221,7 +237,8 @@ function render() {
       '<td>' + (t.length ? esc(t.join(', ')) : '-') + '</td>' +
       '<td class="word">' + word + '</td>' +
       '<td><a href="#" class="rev">[review]</a></td>';
-    tr.querySelector('a[href="#map"]').onclick = function () { map.setView([p.lat, p.lng], 17); marker.openPopup(); };
+    tr.querySelector('a[href="#map"]').onclick = function (e) { e.preventDefault(); selectPlace(p.name, 'list'); };
+    tr.onclick = function (e) { if (e.target.closest('a')) return; selectPlace(p.name, 'list'); };
     tr.querySelectorAll('a.word').forEach(function (a) {
       a.onclick = function (e) { e.preventDefault(); openRow[p.name] = openRow[p.name] === 'reviews' ? null : 'reviews'; render(); };
     });
@@ -235,11 +252,25 @@ function render() {
   }
 }
 
+function selectPlace(name, from) {
+  selected = name;
+  render();
+  var p = places.filter(function (x) { return x.name === name; })[0];
+  var m = markers[name];
+  if (!p || !m) return;
+  if (from === 'list') {
+    map.setView([p.lat, p.lng], 17);
+    document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  m.openPopup();
+  if (from === 'map' && rowEls[name]) rowEls[name].scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 var fitted = false;
 function fitOnce() {
   if (fitted || !places.length) return;
   fitted = true;
-  map.fitBounds(L.latLngBounds(places.map(function (p) { return [p.lat, p.lng]; })), { padding: [30, 30], maxZoom: 16 });
+  map.fitBounds(L.latLngBounds(places.map(function (p) { return [p.lat, p.lng]; })), { padding: [40, 40], maxZoom: 15.5 });
 }
 
 document.getElementById('who').onchange = render;
