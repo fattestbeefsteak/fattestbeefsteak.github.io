@@ -11,15 +11,17 @@ body {
 }
 a { color: #00e; }
 a:visited { color: #551a8b; }
-h1, h2, h3 { font-weight: bold; font-size: 1em; text-transform: uppercase; margin: 1.5em 0 0.5em; }
+h1, h2, h3 { font-weight: bold; font-size: 1em; margin: 1.5em 0 0.5em; }
 h1 { font-size: 1.2em; }
-hr { border: 0; border-top: 1px dashed #000; margin: 1.5em 0; }
 pre { font-family: inherit; margin: 0; }
 ul { padding-left: 2ch; }
 li { margin: 0.2em 0; }
 .small { font-size: 0.85em; }
 label { margin-right: 2ch; white-space: nowrap; }
 #map { height: 420px; border: 1px solid #000; margin: 1em 0; }
-#map .leaflet-tile-pane { filter: grayscale(100%) contrast(1.05); }
 .leaflet-container, .leaflet-popup-content { font-family: "Courier New", Courier, monospace !important; font-size: 14px; }
 .leaflet-popup-content-wrapper, .leaflet-popup-tip { border-radius: 0 !important; box-shadow: none !important; border: 1px solid #000; }
+table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
+th, td { text-align: left; vertical-align: top; padding: 0.2em 1ch 0.2em 0; }
+th { font-weight: bold; cursor: pointer; white-space: nowrap; }
+td.dist { white-space: nowrap; }

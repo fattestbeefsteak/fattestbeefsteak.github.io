@@ -10,7 +10,7 @@ Plain static site. Served by GitHub Pages from the `main` branch root.
 
 ## Adding a restaurant
 
-Add one object to `food/king-street/restaurants.json`:
+Add one object to `food/king-street/restaurants.json` (list order = the # column):
 
 ```json
 {
@@ -18,17 +18,16 @@ Add one object to `food/king-street/restaurants.json`:
   "address": "123 King St W, Toronto",
   "lat": 43.6470,
   "lng": -79.3890,
-  "type": "takeout",
-  "status": "rec",
-  "order": "what to get",
-  "note": "one line on why",
-  "link": "https://..."
+  "cuisine": "Thai",
+  "distance": "450 m, 6 min walk",
+  "distance_m": 450,
+  "tried": ["Avan", "Marcus"]
 }
 ```
 
-- `type`: `takeout` = takeout / lunch / dinner (filled pin), `sitdown` = lunch / dinner (hollow pin)
-- `status`: `rec` = recommended (shown by default), `to-try` = on the research list, not tried yet (dashed pin, hidden unless "include places I haven't tried yet" is ticked)
-- `order`, `note`, `link` are optional
+- `distance` / `distance_m`: walking distance from 327 King St W (text shown, metres used for sorting)
+- `tried`: any of `Avan`, `Anthony`, `Edison`, `Marcus`
+- optional: `note`, `link`
 
 ## Adding a new list
 
