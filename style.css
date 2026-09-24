@@ -28,9 +28,9 @@ td.dist { white-space: nowrap; }
 .wrap { overflow-x: auto; }
 td, th { white-space: nowrap; }
 .hl { font-weight: bold; background: #ff0; }
-td.word { max-width: 44ch; overflow: hidden; text-overflow: ellipsis; }
+td.word { font-size: 0.8em; max-width: 50ch; overflow: hidden; text-overflow: ellipsis; }
 body.wide { max-width: 60em; }
-tr.extra td { white-space: normal; font-size: 0.9em; padding: 0.3em 0 0.8em 2ch; }
+tr.extra td { white-space: normal; font-size: 0.8em; padding: 0.3em 0 0.8em 2ch; }
 tr.extra input, tr.extra textarea { font-family: inherit; font-size: 1em; border: 1px solid #000; padding: 0.1em 0.3em; }
 tr.extra textarea { width: 100%; max-width: 36em; height: 4em; }
 button { font-family: inherit; font-size: 1em; background: #fff; border: 1px solid #000; cursor: pointer; }

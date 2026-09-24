@@ -44,8 +44,6 @@
 </table>
 </div>
 
-<p class="small">Walk is from 327 King St W. Click a column name to sort. Names open Google Maps, numbers find it on the map. Click a highlight to read the reviews, [review] to leave one.</p>
-<p class="small">Map data &copy; OpenStreetMap contributors.</p>
 
 <script>
 var PEOPLE = ['Avan', 'Anthony', 'Edison', 'Marcus'];
@@ -174,7 +172,6 @@ function extraRow(p, mode) {
       var hl = headlineOf(r);
       h += '<b>' + esc(r.name || 'someone') + ':</b> ' + (hl ? '<span class="hl">"' + esc(hl) + '"</span> ' : '') + esc(r.review || '') + '<br>';
     });
-    if (p.email) h += 'tell the restaurant: <a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>';
     td.innerHTML = h;
   }
   tr.appendChild(td);
